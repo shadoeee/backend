@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const HOSTNAME = '127.0.0.1';
+
 const PORT = 3000;
 
 // Define the root directory
@@ -51,4 +51,4 @@ app.get('/createfile', function (request, response) {
   });
 });
 
-app.listen(PORT, () => console.log("Server is started in  http://"+HOSTNAME+":"+PORT));
+app.listen(PORT, () => console.log("Server is started in +PORT));
