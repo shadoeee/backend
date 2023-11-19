@@ -1,247 +1,165 @@
-const express = require('express');
+const express = require("express");
 const app = express();
+
+const mongoose = require("mongoose");
+const config = require("./utils/config");
+const MONGODB_URI = config.MONGODB_URI;
+const PORT = config.PORT;
 
 app.use(express.json());
 
-let rooms = [
-  {
-    roomID: "0",
-    bedsAvailable: 3,
-    roomAmenities: "Wifi,AC,TV,Fridge",
-    pricePerhr: "100"
-  },
-  {
-    roomID: "1",
-    bedsAvailable: 2,
-    roomAmenities: "Wifi,AC,TV",
-    pricePerhr: "70"
-  },
-  {
-    roomID: "2",
-    bedsAvailable: 5,
-    roomAmenities: "Wifi,AC,TV,Fridge",
-    pricePerhr: "150"
-  },
-  {
-    roomID: "3",
-    bedsAvailable: 8,
-    roomAmenities: "Wifi,AC,TV,Fridge",
-    pricePerhr: "180"
-  }
-];
+mongoose.set("strictQuery", false);
 
-let bookings = [
-  {
-    customerName: "Subu",
-    bookingDate: "15-10-2023",
-    startTime: "8:00AM",
-    endTime: "6:00PM",
-    bookingID: "BK25",
-    roomID: "0",
-    status: "booked",
-    bookedON: "10-10-2023"
-  },
-  {
-    customerName: "Harish",
-    bookingDate: "18-10-2023",
-    startTime: "10:00AM",
-    endTime: "11:00PM",
-    bookingID: "BK26",
-    roomID: "1",
-    status: "booked",
-    bookedON: "15-10-2023"
-  },
-  {
-    customerName: "Bala",
-    bookingDate: "28-10-2023",
-    startTime: "01:00PM",
-    endTime: "11:00PM",
-    bookingID: "BK27",
-    roomID: "2",
-    status: "booked",
-    bookedON: "19-10-2023"
-  },
-  {
-    customerName: "Madhu",
-    bookingDate: "23-10-2023",
-    startTime: "6:00AM",
-    endTime: "7:00PM",
-    bookingID: "BK28",
-    roomID: "3",
-    status: "booked",
-    bookedON: "09-10-2023"
-  }
-];
+console.log('connecting to', MONGODB_URI)
 
-let customers = [
-  {
-    name: "Subu",
-    bookings: [
-      {
-        customerName: "Subu",
-        bookingDate: "15-10-2023",
-        startTime: "8:00AM",
-        endTime: "6:00PM",
-        bookingID: "BK25",
-        roomID: "0",
-        status: "booked",
-        bookedON: "10-10-2023"
-      }
-    ]
-  },
-  {
-    name: "Harish",
-    bookings: [
-      {
-        customerName: "Harish",
-        bookingDate: "18-10-2023",
-        startTime: "10:00AM",
-        endTime: "11:00PM",
-        bookingID: "BK26",
-        roomID: "1",
-        status: "booked",
-        bookedON: "15-10-2023"
-      }
-    ]
-  },
-  {
-    name: "Bala",
-    bookings: [
-      {
-        customerName: "Bala",
-        bookingDate: "28-10-2023",
-        startTime: "01:00PM",
-        endTime: "11:00PM",
-        bookingID: "BK27",
-        roomID: "2",
-        status: "booked",
-        bookedON: "19-10-2023"
-      }
-    ]
-  },
-  {
-    name: "Madhu",
-    bookings: [
-      {
-        customerName: "Madhu",
-        bookingDate: "23-10-2023",
-        startTime: "6:00AM",
-        endTime: "7:00PM",
-        bookingID: "BK28",
-        roomID: "3",
-        status: "booked",
-        bookedON: "09-10-2023"
-      }
-    ]
-  }
-];
 
-// Get all rooms
-app.get('/rooms', (request, response) => {
-  response.status(200).send({
-    message: "List of rooms",
-    rooms
+mongoose.connect(MONGODB_URI, {
+  useNewParser: true,
+  useUnifiedTopology: true
+})
+.then(() => {
+  console.log('connecting to MongoDB...');
+  app.listen(PORT, () => {
+    console.log(`server running on port ${PORT}`);
   });
+})
+.catch((err) => {
+  console.error('Error connecting to MongoDB:', err);
 });
 
-// Create a new room
-app.post('/rooms', (request, response) => {
-  let data = request.body;
-console.log('Received data:', data); 
-  let filteredData = rooms.filter((e) => e.roomID == data.roomID);
-  if (filteredData.length === 0) {
-    rooms.push(data);
-    response.status(201).send({
-      message: "Room created successfully"
-    });
-  } else {
-    response.status(400).send({
-      message: "Room already exists"
-    });
-  }
+const mentorSchema = new mongoose.Schema({
+  name: String,
+  students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student'}]
 });
 
-// Book a room
-app.post('/booking/:id', (request, response) => {
+
+  
+const Mentor = mongoose.model("Mentor", mentorSchema);
+
+const studentSchema = new mongoose.Schema({
+  name: String,
+  mentor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Mentor'}]
+});
+  
+const Student = mongoose.model("Student", studentSchema);
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    message: 'Welcome to the mentor and student assignment database'
+  })
+});
+
+app.post('/create_mentor', async (req, res) => {
   try {
-    const id = request.params.id;
-    let bookRoom = request.body;
-    let date = new Date();
-    let dateFormat = date.toLocaleDateString();
-    let room = rooms.find((e) => e.roomID == id);
-
-    const customerName = bookRoom.customerName;
-    if (!room) {
-      response.status(404).send({
-        message: "Room does not exist"
-      });
-      return;
-    }
-
-    let conflictingBooking = bookings.find((b) => b.roomID === id && b.bookingDate === bookRoom.bookingDate);
-    if (conflictingBooking) {
-      response.status(409).send({
-        message: "Room already booked on this date"
-      });
-      return;
-    }
-
-    let newID = "BK" + (bookings.length + 1);
-    let newBooking = { ...bookRoom, bookingID: newID, roomID: id, status: "booked", bookedON: dateFormat };
-    bookings.push(newBooking);
-
-    let customerDetails = customers.find((cust) => cust.name === customerName);
-    if (customerDetails) {
-      customerDetails.bookings.push(newBooking);
-    } else {
-      customers.push({ name: newBooking.customer, bookings: [newBooking] });
-    }
-
-    response.status(201).send({
-      message: "Room booked successfully",
-      booking: newBooking
-    });
+    const mentor = new Mentor(req.body);
+    await mentor.save();
+    res.json({ message: "Mentor created successfully", id: mentor._id });
   } catch (error) {
-    response.status(500).send({
-      message: "Error in booking room",
-      error: error.message
-    });
+    console.error(error);
+    res.status(500).json({ message: "something went wrong" });
   }
 });
 
-// Get all bookings
-app.get('/viewbookings', (request, response) => {
-  const bookedRooms = bookings.map(booking => {
-    const { roomID, status, customerName, bookingDate, startTime, endTime } = booking;
-    return { roomID, status, customerName, bookingDate, startTime, endTime };
-  });
-  response.status(200).send({
-    message: "List of booked rooms",
-    bookedRooms
-  });
-});
-
-// Get customer bookings by name
-app.get('/customers/:name', (request, response) => {
-  const { name } = request.params;
-  const customer = customers.find(cust => cust.name === name);
-
-  if (!customer) {
-    response.status(404).send({ message: "Customer not found" });
-    return;
+app.post('/create_student', async (req, res) => {
+  try {
+    const student = new Student(req.body);
+    await student.save();
+    res.json({ message: "Student data created successfully", id: student._id });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "something went wrong while creating data" });
   }
-
-  const customerBookings = customer.bookings.map(booking => {
-    const { customerName, roomID, startTime, endTime, bookingID, status, bookingDate, bookedON } = booking;
-    return { customer: customerName, roomID, startTime, endTime, bookingID, status, bookingDate, bookedON };
-  });
-
-  const count = customerBookings.length;
-  response.send({
-    message: `${name} booked ${count} time(s)`,
-    customer: customerBookings
-  });
 });
 
-// Start the server
-app.listen(3000, () => console.log("Server listening on port 3000"));
+app.get("/mentors", async (req, res) => {
+  try {
+    const mentors = await Mentor.find({});
+    res.json(mentors);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'something went wrong' });
+  }
+});
+
+app.get("/students", async (req, res) => {
+  try {
+    const students = await Student.find({});
+    res.json(students);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'something went wrong' });
+  }
+});
+
+app.put('/assign_students/:id/:studentId', async (req, res) => {
+  try {
+    const { id, studentId } = req.params;
+    
+    const mentor = await Mentor.findById(id);
+
+    if (!mentor) {
+      return res.status(404).json({ message: "Mentor not found" });
+    }
+
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" })
+    }
+
+    mentor.students.push(studentId);
+    student.mentor = id;
+
+    await Promise.all([mentor.save(), student.save()]);
+
+    res.json({ message: "student assigned with a mentor", mentor, student });
+  } catch (error) {
+    res.status(500).json({ message: "something went wrong by assigning" });
+  }
+});
+
+app.get("/mentor_student/:id", async (req, res) => {
+  try {
+    const mentor = await Mentor.findById(req.params.id).populate('students');
+
+    if (mentor) {
+      res.json({ mentor });
+    } else {
+      res.status(404).json({ message: 'mentor not found' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "something went wrong" });
+  }
+});
+
+app.put("/change_mentor/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newMentorId } = req.body;
+
+    const student = await Student.findById(id);
+
+    if (!student) {
+      return res.status(404).json({ message: "student not found" });
+    }
+
+    const newMentor = await Mentor.findById(newMentorId);
+    
+    if (!newMentor) {
+      return res.status(404).json({ message: "new mentor not found" });
+    }
+
+    student.mentor = newMentorId;
+
+    await student.save();
+
+    res.json({ message: "student and mentor updated successfully", student });
+  } catch (error) {
+    res.status(500).json({ message: "something went wrong" });
+  }
+});
+
+app.listen(PORT || 3000, () => {
+  console.log(`server running on port ${PORT || 3000}`);
+});
