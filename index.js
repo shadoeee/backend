@@ -10,18 +10,16 @@ app.use(express.json());
 
 mongoose.set("strictQuery", false);
 
-console.log('connecting to', MONGODB_URI)
+// if (!MONGODB_URI) {
+//   console.error('MONGODB_URI is not defined. Please check your configuration.');
+//   process.exit(1);
+// }
 
+// console.log('connecting to', MONGODB_URI);
 
-mongoose.connect(MONGODB_URI, {
-  useNewParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(MONGODB_URI)
 .then(() => {
-  console.log('connecting to MongoDB...');
-  app.listen(PORT, () => {
-    console.log(`server running on port ${PORT}`);
-  });
+  console.log('Connected to MongoDB');
 })
 .catch((err) => {
   console.error('Error connecting to MongoDB:', err);
@@ -104,19 +102,31 @@ app.put('/assign_students/:id/:studentId', async (req, res) => {
     const student = await Student.findById(studentId);
 
     if (!student) {
-      return res.status(404).json({ message: "Student not found" })
+      return res.status(404).json({ message: "Student not found" });
     }
 
-    mentor.students.push(studentId);
+    // Check if the student is already assigned to a mentor
+    if (student.mentor && student.mentor !== id) {
+      const previousMentor = await Mentor.findById(student.mentor);
+      if (previousMentor) {
+        // Remove the student from the previous mentor's list
+        previousMentor.students.pull(studentId);
+        await previousMentor.save();
+      }
+    }
+
+    // Assign the student to the new mentor
+    mentor.students.addToSet(studentId);
     student.mentor = id;
 
     await Promise.all([mentor.save(), student.save()]);
 
-    res.json({ message: "student assigned with a mentor", mentor, student });
+    res.json({ message: "Student assigned to a new mentor", mentor, student });
   } catch (error) {
-    res.status(500).json({ message: "something went wrong by assigning" });
+    res.status(500).json({ message: "Something went wrong while assigning" });
   }
 });
+
 
 app.get("/mentor_student/:id", async (req, res) => {
   try {
@@ -160,6 +170,6 @@ app.put("/change_mentor/:id", async (req, res) => {
   }
 });
 
-app.listen(PORT || 3000, () => {
-  console.log(`server running on port ${PORT || 3000}`);
+app.listen(PORT, () => {
+  console.log(`server running on port ${PORT}`);
 });
